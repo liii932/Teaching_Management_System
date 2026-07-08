@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>教学管理系统</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#f6f8fb;color:#1f2937}
+    header{height:56px;background:#145c9e;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 22px}
+    header h1{font-size:18px;margin:0;font-weight:650}
+    header span{font-size:13px;opacity:.9}
+    .layout{display:grid;grid-template-columns:210px 1fr;min-height:calc(100vh - 56px)}
+    nav{background:#fff;border-right:1px solid #d8dee8;padding:14px}
+    nav button{width:100%;height:38px;text-align:left;border:0;background:transparent;border-radius:6px;padding:0 12px;font-size:14px;color:#344054;cursor:pointer}
+    nav button.active{background:#e8f1fb;color:#145c9e;font-weight:650}
+    main{padding:18px;overflow:auto}
+    .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+    .toolbar h2{font-size:18px;margin:0 12px 0 0}
+    input,select{height:34px;border:1px solid #cbd5e1;border-radius:5px;padding:0 9px;background:#fff;min-width:150px}
+    button{height:34px;border:0;border-radius:5px;padding:0 12px;background:#145c9e;color:#fff;cursor:pointer}
+    button.secondary{background:#fff;color:#145c9e;border:1px solid #145c9e}
+    button.danger{background:#b42318}
+    button:disabled{opacity:.55;cursor:not-allowed}
+    .panel{background:#fff;border:1px solid #d8dee8;border-radius:8px;padding:14px}
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    th,td{border-bottom:1px solid #edf1f7;padding:9px;text-align:left;white-space:nowrap}
+    th{background:#f8fafc;color:#475467}
+    td.actions{display:flex;gap:6px}
+    .empty{padding:26px;text-align:center;color:#667085}
+    .status{min-height:24px;margin-top:10px;color:#475467;font-size:13px}
+    .status.error{color:#b42318}
+    dialog{border:0;border-radius:8px;padding:0;width:min(560px,calc(100vw - 24px));box-shadow:0 20px 45px rgba(15,23,42,.22)}
+    dialog::backdrop{background:rgba(15,23,42,.38)}
+    .modal-head{padding:14px 16px;border-bottom:1px solid #e5e7eb;font-weight:650}
+    .modal-body{padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .field{display:flex;flex-direction:column;gap:6px}
+    .field label{font-size:13px;color:#475467}
+    .field input,.field select{width:100%;min-width:0}
+    .modal-foot{padding:14px 16px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;gap:8px}
+    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+    .metric{background:#fff;border:1px solid #d8dee8;border-radius:8px;padding:14px}
+    .metric strong{display:block;font-size:24px;color:#145c9e}
+    .metric span{font-size:13px;color:#667085}
+    @media (max-width:760px){.layout{grid-template-columns:1fr}nav{display:flex;overflow:auto;border-right:0;border-bottom:1px solid #d8dee8}nav button{min-width:92px;text-align:center}.modal-body{grid-template-columns:1fr}main{padding:12px}.panel{overflow:auto}}
+  </style>
+</head>
+<body>
+<header>
+  <h1>教学管理系统</h1>
+  <span id="health">数据库状态检测中</span>
+</header>
+<div class="layout">
+  <nav id="nav"></nav>
+  <main>
+    <div class="toolbar" id="toolbar"></div>
+    <div id="stats"></div>
+    <section class="panel">
+      <div id="table"></div>
+      <div class="status" id="status"></div>
+    </section>
+  </main>
+</div>
+<dialog id="editor">
+  <form method="dialog">
+    <div class="modal-head" id="editorTitle"></div>
+    <div class="modal-body" id="editorBody"></div>
+    <div class="modal-foot">
+      <button type="button" class="secondary" id="cancelBtn">取消</button>
+      <button type="button" id="saveBtn">保存</button>
+    </div>
+  </form>
+</dialog>
+<script>
+const API="";
+const modules={
+  departments:{name:"系管理",path:"/api/departments",key:["deptNo"],fields:[
+    ["deptNo","系编号","text",true],["deptName","系名称","text"]
+  ],columns:[["deptNo","系编号"],["deptName","系名称"]]},
+  majors:{name:"专业管理",path:"/api/majors",key:["majorNo"],filters:[["deptNo","所属系","departments","deptNo","deptName"]],fields:[
+    ["majorNo","专业编号","text",true],["majorName","专业名称","text"],["deptNo","所属系","select","departments","deptNo","deptName"]
+  ],columns:[["majorNo","专业编号"],["majorName","专业名称"],["deptName","所属系"]]},
+  classes:{name:"班级管理",path:"/api/classes",key:["classNo"],filters:[["majorNo","所属专业","majors","majorNo","majorName"]],fields:[
+    ["classNo","班级号","text",true],["className","班级名称","text"],["majorNo","所属专业","select","majors","majorNo","majorName"]
+  ],columns:[["classNo","班级号"],["className","班级名称"],["majorName","所属专业"],["deptName","所属系"]]},
+  students:{name:"学生管理",path:"/api/students",key:["sno"],filters:[["classNo","班级","classes","classNo","className"],["keyword","关键字","text"]],fields:[
+    ["sno","学号","text",true],["sname","姓名","text"],["ssex","性别","sex"],["sage","年龄","number"],["classNo","班级","select","classes","classNo","className",true]
+  ],columns:[["sno","学号"],["sname","姓名"],["ssex","性别"],["sage","年龄"],["className","班级"]]},
+  teachers:{name:"教师管理",path:"/api/teachers",key:["tno"],filters:[["classNo","负责班级","classes","classNo","className"],["keyword","关键字","text"]],fields:[
+    ["tno","教职工号","text",true],["tname","姓名","text"],["tsex","性别","sex"],["ttitle","职称","text"],["classNo","负责班级","select","classes","classNo","className",true]
+  ],columns:[["tno","教职工号"],["tname","姓名"],["tsex","性别"],["ttitle","职称"],["className","负责班级"]]},
+  courses:{name:"课程管理",path:"/api/courses",key:["cno"],filters:[["teacherNo","授课教师","teachers","tno","tname"],["keyword","关键字","text"]],fields:[
+    ["cno","课程号","text",true],["cname","课程名称","text"],["credit","学分","number"],["tno","授课教师","select","teachers","tno","tname",true]
+  ],columns:[["cno","课程号"],["cname","课程名称"],["credit","学分"],["tname","授课教师"]]},
+  scores:{name:"成绩管理",path:"/api/scores",key:["sno","cno"],filters:[["studentNo","学生","students","sno","sname"],["courseNo","课程","courses","cno","cname"]],fields:[
+    ["sno","学生","select","students","sno","sname"],["cno","课程","select","courses","cno","cname"],["grade","成绩","number"]
+  ],columns:[["sno","学号"],["sname","学生"],["cno","课程号"],["cname","课程"],["credit","学分"],["grade","成绩"]]},
+  statistics:{name:"统计查询"}
+};
+let current="departments", rows=[], editing=null, lookups={};
+const $=id=>document.getElementById(id);
+function setStatus(text,error=false){$("status").textContent=text||"";$("status").classList.toggle("error",error)}
+async function request(method,url,body){
+  const opt={method,headers:{"Content-Type":"application/json"}};
+  if(body) opt.body=JSON.stringify(body);
+  const res=await fetch(API+url,opt);
+  const json=await res.json().catch(()=>({ok:false,error:"响应解析失败"}));
+  if(!res.ok||json.ok===false) throw new Error(json.error||("HTTP "+res.status));
+  return json.data;
+}
+function initNav(){
+  $("nav").replaceChildren(...Object.entries(modules).map(([id,m])=>{
+    const b=document.createElement("button");b.textContent=m.name;b.className=id===current?"active":"";b.onclick=()=>switchModule(id);return b;
+  }));
+}
+async function loadLookups(){
+  lookups.departments=await request("GET","/api/departments").catch(()=>[]);
+  lookups.majors=await request("GET","/api/majors").catch(()=>[]);
+  lookups.classes=await request("GET","/api/classes").catch(()=>[]);
+  lookups.students=await request("GET","/api/students").catch(()=>[]);
+  lookups.teachers=await request("GET","/api/teachers").catch(()=>[]);
+  lookups.courses=await request("GET","/api/courses").catch(()=>[]);
+}
+async function switchModule(id){current=id;editing=null;initNav();$("stats").innerHTML="";await render();}
+async function render(){
+  setStatus("加载中...");
+  if(current==="statistics"){await renderStats();return}
+  await loadLookups();
+  renderToolbar();
+  await loadRows();
+}
+function renderToolbar(){
+  const m=modules[current];
+  const title=document.createElement("h2");title.textContent=m.name;
+  const add=document.createElement("button");add.textContent="新增";add.onclick=()=>openEditor(null);
+  const refresh=document.createElement("button");refresh.className="secondary";refresh.textContent="刷新";refresh.onclick=loadRows;
+  const nodes=[title];
+  (m.filters||[]).forEach(f=>nodes.push(filterNode(f)));
+  nodes.push(add,refresh);
+  $("toolbar").replaceChildren(...nodes);
+}
+function filterNode(f){
+  if(f[2]==="text"){const i=document.createElement("input");i.placeholder=f[1];i.dataset.filter=f[0];i.onkeydown=e=>{if(e.key==="Enter")loadRows()};return i}
+  const s=document.createElement("select");s.dataset.filter=f[0];s.onchange=loadRows;s.append(new Option(f[1]+"：全部",""));
+  (lookups[f[2]]||[]).forEach(x=>s.append(new Option(x[f[3]]+" "+(x[f[4]]||""),x[f[3]])));
+  return s;
+}
+async function loadRows(){
+  const m=modules[current], params=new URLSearchParams();
+  document.querySelectorAll("[data-filter]").forEach(el=>{if(el.value)params.set(el.dataset.filter,el.value)});
+  try{
+    rows=await request("GET",m.path+(params.toString()?"?"+params:""));
+    renderTable();
+    setStatus(rows.length+" 条记录");
+  }catch(e){setStatus(e.message,true)}
+}
+function renderTable(){
+  const m=modules[current];
+  if(!rows.length){$("table").innerHTML='<div class="empty">暂无数据</div>';return}
+  const table=document.createElement("table");
+  const thead=document.createElement("thead"), trh=document.createElement("tr");
+  m.columns.forEach(c=>{const th=document.createElement("th");th.textContent=c[1];trh.append(th)});
+  const th=document.createElement("th");th.textContent="操作";trh.append(th);thead.append(trh);
+  const tbody=document.createElement("tbody");
+  rows.forEach(r=>{
+    const tr=document.createElement("tr");
+    m.columns.forEach(c=>{const td=document.createElement("td");td.textContent=r[c[0]]??"";tr.append(td)});
+    const actions=document.createElement("td");actions.className="actions";
+    const edit=document.createElement("button");edit.className="secondary";edit.textContent="编辑";edit.onclick=()=>openEditor(r);
+    const del=document.createElement("button");del.className="danger";del.textContent="删除";del.onclick=()=>deleteRow(r);
+    actions.append(edit,del);tr.append(actions);tbody.append(tr);
+  });
+  table.append(thead,tbody);$("table").replaceChildren(table);
+}
+function openEditor(row){
+  const m=modules[current];editing=row;
+  $("editorTitle").textContent=(row?"编辑":"新增")+m.name;
+  $("editorBody").replaceChildren(...m.fields.map(f=>fieldNode(f,row)));
+  $("editor").showModal();
+}
+function fieldNode(f,row){
+  const wrap=document.createElement("div");wrap.className="field";
+  const label=document.createElement("label");label.textContent=f[1];
+  let input;
+  if(f[2]==="select"){input=document.createElement("select");if(f[6])input.append(new Option("无",""));(lookups[f[3]]||[]).forEach(x=>input.append(new Option(x[f[4]]+" "+(x[f[5]]||""),x[f[4]])))}
+  else if(f[2]==="sex"){input=document.createElement("select");["男","女"].forEach(v=>input.append(new Option(v,v)))}
+  else{input=document.createElement("input");input.type=f[2]||"text";if(input.type==="number")input.step="0.1"}
+  input.id="field_"+f[0];input.value=row?.[f[0]]??"";if(row&&f[3]===true)input.disabled=true;
+  wrap.append(label,input);return wrap;
+}
+async function saveRow(){
+  const m=modules[current], data={};
+  m.fields.forEach(f=>{const el=$("field_"+f[0]);let v=el.value;if(v==="")v=null;if(el.type==="number"&&v!==null)v=Number(v);data[f[0]]=v});
+  try{
+    if(editing){
+      const id=m.key.map(k=>editing[k]).join("/");
+      await request("PUT",m.path+"/"+id,data);
+    }else await request("POST",m.path,data);
+    $("editor").close();await render();setStatus("保存成功");
+  }catch(e){setStatus(e.message,true)}
+}
+async function deleteRow(row){
+  const m=modules[current], id=m.key.map(k=>row[k]).join("/");
+  if(!confirm("确认删除这条记录？相关外键数据会按数据库约束处理。"))return;
+  try{await request("DELETE",m.path+"/"+id);await render();setStatus("删除成功")}catch(e){setStatus(e.message,true)}
+}
+async function renderStats(){
+  $("toolbar").innerHTML='<h2>统计查询</h2><button class="secondary" onclick="renderStats()">刷新</button>';
+  try{
+    const overview=await request("GET","/api/statistics/overview");
+    const labels={departmentCount:"系",majorCount:"专业",classCount:"班级",studentCount:"学生",teacherCount:"教师",courseCount:"课程",scoreCount:"成绩"};
+    $("stats").innerHTML='<div class="cards">'+Object.entries(labels).map(([k,v])=>`<div class="metric"><strong>${overview[k]??0}</strong><span>${v}数量</span></div>`).join("")+'</div>';
+    const tools=document.createElement("div");tools.className="toolbar";
+    tools.append(statInput("学生成绩单","student","学号"),statInput("课程分析","course","课程号"),statInput("班级分析","class","班级号"));
+    $("table").replaceChildren(tools,document.createElement("div"));
+    setStatus("统计总览已加载");
+  }catch(e){setStatus(e.message,true)}
+}
+function statInput(title,type,ph){
+  const wrap=document.createElement("span");
+  const input=document.createElement("input");input.placeholder=ph;
+  const btn=document.createElement("button");btn.textContent=title;btn.onclick=()=>loadStat(type,input.value.trim());
+  wrap.append(input,btn);return wrap;
+}
+async function loadStat(type,id){
+  if(!id){setStatus("请输入编号",true);return}
+  try{
+    const data=await request("GET","/api/statistics/"+type+"/"+encodeURIComponent(id));
+    const rows=Array.isArray(data)?data:(data.scores||[data.summary||data]);
+    renderGenericTable(rows.filter(Boolean));
+    setStatus("统计查询完成");
+  }catch(e){setStatus(e.message,true)}
+}
+function renderGenericTable(data){
+  if(!data.length){$("table").lastChild.innerHTML='<div class="empty">暂无统计数据</div>';return}
+  const keys=Object.keys(data[0]);
+  const table=document.createElement("table");
+  table.innerHTML="<thead><tr>"+keys.map(k=>`<th>${k}</th>`).join("")+"</tr></thead><tbody>"+data.map(r=>"<tr>"+keys.map(k=>`<td>${r[k]??""}</td>`).join("")+"</tr>").join("")+"</tbody>";
+  $("table").lastChild.replaceChildren(table);
+}
+async function checkHealth(){
+  try{await request("GET","/api/health");$("health").textContent="数据库连接正常"}catch(e){$("health").textContent="数据库连接失败"}
+}
+$("cancelBtn").onclick=()=>$("editor").close();
+$("saveBtn").onclick=saveRow;
+initNav();checkHealth();render();
+</script>
+</body>
+</html>
