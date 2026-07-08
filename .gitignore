@@ -1,5 +1,7 @@
 # Maven build output
 target/
+out/
+build/
 *.class
 
 # Packaged artifacts
@@ -10,6 +12,8 @@ target/
 # Logs and runtime dumps
 *.log
 logs/
+*.pid
+*.hprof
 hs_err_pid*
 replay_pid*
 
@@ -29,6 +33,10 @@ desktop.ini
 # Local environment overrides
 .env
 .env.*
+!.env.example
+src/main/resources/application.properties
+src/main/resources/application-*.properties
+!src/main/resources/application.properties.example
 application-local.properties
 local.properties
 
@@ -36,4 +44,6 @@ local.properties
 *.tmp
 *.temp
 *.swp
+*.bak
+*.orig
 ~$*

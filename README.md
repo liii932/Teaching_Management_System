@@ -22,7 +22,13 @@ mysql -u root -p edusystem < src/main/resources/db/edusystem.sql
 
 ## 配置
 
-默认配置在 `src/main/resources/application.properties`：
+复制示例配置并按本机环境修改：
+
+```bash
+cp src/main/resources/application.properties.example src/main/resources/application.properties
+```
+
+本地配置在 `src/main/resources/application.properties`，该文件不会提交到 Git：
 
 - `server.port=8080`
 - `db.url=jdbc:mysql://localhost:3306/edusystem?...`
