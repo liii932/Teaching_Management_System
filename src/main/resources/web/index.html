@@ -34,6 +34,8 @@
     dialog::backdrop{background:rgba(15,23,42,.38)}
     .modal-head{padding:14px 16px;border-bottom:1px solid #e5e7eb;font-weight:650}
     .modal-body{padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .modal-error{margin:0 16px 12px;padding:9px 10px;border:1px solid #f3b4ae;border-radius:5px;background:#fff4f2;color:#b42318;font-size:13px;line-height:1.45}
+    .modal-error:empty{display:none}
     .field{display:flex;flex-direction:column;gap:6px}
     .field label{font-size:13px;color:#475467}
     .field input,.field select{width:100%;min-width:0}
@@ -65,6 +67,7 @@
   <form method="dialog">
     <div class="modal-head" id="editorTitle"></div>
     <div class="modal-body" id="editorBody"></div>
+    <div class="modal-error" id="editorError"></div>
     <div class="modal-foot">
       <button type="button" class="secondary" id="cancelBtn">取消</button>
       <button type="button" id="saveBtn">保存</button>
@@ -100,6 +103,7 @@ const modules={
 let current="departments", rows=[], editing=null, lookups={};
 const $=id=>document.getElementById(id);
 function setStatus(text,error=false){$("status").textContent=text||"";$("status").classList.toggle("error",error)}
+function setEditorError(text){$("editorError").textContent=text||""}
 async function request(method,url,body){
   const opt={method,headers:{"Content-Type":"application/json"}};
   if(body) opt.body=JSON.stringify(body);
@@ -175,6 +179,7 @@ function renderTable(){
 function openEditor(row){
   const m=modules[current];editing=row;
   $("editorTitle").textContent=(row?"编辑":"新增")+m.name;
+  setEditorError("");
   $("editorBody").replaceChildren(...m.fields.map(f=>fieldNode(f,row)));
   $("editor").showModal();
 }
@@ -192,12 +197,13 @@ async function saveRow(){
   const m=modules[current], data={};
   m.fields.forEach(f=>{const el=$("field_"+f[0]);let v=el.value;if(v==="")v=null;if(el.type==="number"&&v!==null)v=Number(v);data[f[0]]=v});
   try{
+    setEditorError("");
     if(editing){
       const id=m.key.map(k=>editing[k]).join("/");
       await request("PUT",m.path+"/"+id,data);
     }else await request("POST",m.path,data);
     $("editor").close();await render();setStatus("保存成功");
-  }catch(e){setStatus(e.message,true)}
+  }catch(e){setEditorError(e.message)}
 }
 async function deleteRow(row){
   const m=modules[current], id=m.key.map(k=>row[k]).join("/");
