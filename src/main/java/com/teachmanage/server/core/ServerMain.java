@@ -17,6 +17,8 @@ public class ServerMain {
     public void start() throws Exception {
         DbConfig config = DbConfig.load();
         this.connection = new DbManager(config).open();
+        int serverPort = config.serverPort();
+        log.info("Using web server port {}", serverPort);
 
         TeachingService service = new TeachingService(
                 new DepartmentDao(connection),
@@ -28,9 +30,9 @@ public class ServerMain {
                 new ScoreDao(connection)
         );
 
-        this.webServer = new WebServer(config.serverPort(), service);
+        this.webServer = new WebServer(serverPort, service);
         this.webServer.start();
-        log.info("Teaching Management System started at http://localhost:{}", config.serverPort());
+        log.info("Teaching Management System started at http://localhost:{}", serverPort);
     }
 
     public void stop() {

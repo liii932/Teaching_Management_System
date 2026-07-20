@@ -1,36 +1,53 @@
-# Maven build output
+# Build output and generated reports
 target/
-out/
 build/
+out/
+bin/
 *.class
+*.exec
 
-# Packaged artifacts
+# Packaged and exported artifacts
 *.jar
 *.war
 *.ear
+/*.zip
+/*.7z
+/*.tar
+/*.tar.gz
+/*.tgz
 
-# Logs and runtime dumps
-*.log
+# Maven release/plugin leftovers
+dependency-reduced-pom.xml
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.tag
+release.properties
+
+# Logs, runtime state, and crash dumps
 logs/
+*.log
 *.pid
 *.hprof
 hs_err_pid*
 replay_pid*
 
-# IDE and editor files
+# IDE and editor metadata
 .idea/
 *.iml
+*.ipr
+*.iws
 .vscode/
 .project
 .classpath
+.factorypath
 .settings/
+nbproject/private/
 
-# OS metadata
-.DS_Store
-Thumbs.db
-desktop.ini
+# Local development-tool state
+/.agents/
+/.codex/
 
-# Local environment overrides
+# Local environment and secret-bearing configuration
 .env
 .env.*
 !.env.example
@@ -40,10 +57,17 @@ src/main/resources/application-*.properties
 application-local.properties
 local.properties
 
-# Temporary files
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary and backup files
 *.tmp
 *.temp
 *.swp
+*.swo
 *.bak
 *.orig
+*~
 ~$*
